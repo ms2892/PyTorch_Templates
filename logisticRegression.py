@@ -14,31 +14,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
 
-# 0) Prepare the dataset
-bc = datasets.load_breast_cancer()
-X,y = bc.data,bc.target
-
-n_samples,n_features = X.shape
-print(n_samples,n_features)
-
-# Split the dataset in the 80:20 ratio
-X_train,X_test,Y_train,Y_test = train_test_split(X,y,test_size=0.2, random_state=1234)
-
-# Scale the features
-sc = StandardScaler()
-X_train = sc.fit_transform(X_train)
-X_test = sc.transform(X_test)
-
-X_train = torch.from_numpy(X_train.astype(np.float32))
-X_test = torch.from_numpy(X_test.astype(np.float32))
-Y_train = torch.from_numpy(Y_train.astype(np.float32))
-Y_test = torch.from_numpy(Y_test.astype(np.float32))
-
-Y_train = Y_train.view(Y_train.shape[0],1)
-Y_test = Y_test.view(Y_test.shape[0],1)
-
-# 1) Create The Model
-# f = wx + b, sigmoid at the end
 
 class LogisticRegression(nn.Module):
     
@@ -50,49 +25,78 @@ class LogisticRegression(nn.Module):
         y_pred = torch.sigmoid(self.linear(x))
         return y_pred
 
-model = LogisticRegression(n_features)
+if __name__=='__main__':
 
-# 2) Loss and Optimizer
-learning_rate = 0.01
+    # 0) Prepare the dataset
+    bc = datasets.load_breast_cancer()
+    X,y = bc.data,bc.target
 
-criterion = nn.BCELoss()  # Binary Cross Entropy
-optimizer = torch.optim.SGD(model.parameters(),lr=learning_rate)
+    n_samples,n_features = X.shape
+    print(n_samples,n_features)
+
+    # Split the dataset in the 80:20 ratio
+    X_train,X_test,Y_train,Y_test = train_test_split(X,y,test_size=0.2, random_state=1234)
+
+    # Scale the features
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform(X_test)
+
+    X_train = torch.from_numpy(X_train.astype(np.float32))
+    X_test = torch.from_numpy(X_test.astype(np.float32))
+    Y_train = torch.from_numpy(Y_train.astype(np.float32))
+    Y_test = torch.from_numpy(Y_test.astype(np.float32))
+
+    Y_train = Y_train.view(Y_train.shape[0],1)
+    Y_test = Y_test.view(Y_test.shape[0],1)
+
+    # 1) Create The Model
+    # f = wx + b, sigmoid at the end
 
 
-# 3) Training Loop
-num_epochs = 100
+    model = LogisticRegression(n_features)
 
-for epoch in range(num_epochs):
-    # Switch the model to Training Mode
-    model.train()
-    # forward Pass
-    y_pred = model(X_train)
-    loss = criterion(y_pred,Y_train)    
-    
-    # Backward Pass
-    loss.backward()
-    
-    # Updates
-    optimizer.step()
-    
-    optimizer.zero_grad()
-    
-    if (epoch+1)%10==0:
-        # Switch to Evaluation Mode
-        model.eval()
-        y_test_pred = model(X_test)
-        loss_test = criterion(y_test_pred,Y_test)
+    # 2) Loss and Optimizer
+    learning_rate = 0.01
+
+    criterion = nn.BCELoss()  # Binary Cross Entropy
+    optimizer = torch.optim.SGD(model.parameters(),lr=learning_rate)
+
+
+    # 3) Training Loop
+    num_epochs = 100
+
+    for epoch in range(num_epochs):
+        # Switch the model to Training Mode
+        model.train()
+        # forward Pass
+        y_pred = model(X_train)
+        loss = criterion(y_pred,Y_train)    
         
+        # Backward Pass
+        loss.backward()
+        
+        # Updates
+        optimizer.step()
+        
+        optimizer.zero_grad()
+        
+        if (epoch+1)%10==0:
+            # Switch to Evaluation Mode
+            model.eval()
+            y_test_pred = model(X_test)
+            loss_test = criterion(y_test_pred,Y_test)
+            
+            y_pred = y_pred.round()
+            tr_acc = y_pred.eq(Y_train).sum() / float(Y_train.shape[0])
+            
+            y_test_pred = y_test_pred.round()
+            acc = y_test_pred.eq(Y_test).sum() / float(Y_test.shape[0])
+            print(f'Epoch {epoch+1}: Accuracy = {tr_acc:.4f}, Loss = {loss:.4f}, Val Accuracy= {acc.item():.4f} Test Loss = {loss_test:.4f}')
+
+    with torch.no_grad():
+        y_pred = model(X_test)
         y_pred = y_pred.round()
-        tr_acc = y_pred.eq(Y_train).sum() / float(Y_train.shape[0])
+        acc = y_pred.eq(Y_test).sum() / float(Y_test.shape[0])
         
-        y_test_pred = y_test_pred.round()
-        acc = y_test_pred.eq(Y_test).sum() / float(Y_test.shape[0])
-        print(f'Epoch {epoch+1}: Accuracy = {tr_acc:.4f}, Loss = {loss:.4f}, Val Accuracy= {acc.item():.4f} Test Loss = {loss_test:.4f}')
-
-with torch.no_grad():
-    y_pred = model(X_test)
-    y_pred = y_pred.round()
-    acc = y_pred.eq(Y_test).sum() / float(Y_test.shape[0])
-    
-    print(f'Accuracy = {acc:.4f}')
+        print(f'Accuracy = {acc:.4f}')
